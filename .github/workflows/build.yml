@@ -22,16 +22,14 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.24.0'
           channel: 'stable'
           cache: true
 
       - name: Ensure Android platform exists
         run: |
           if [ ! -d "android" ]; then
-            echo "Android folder missing — generating..."
             flutter create . --platforms=android --org com.zomedica --project-name zomedica_radar
-          else
-            echo "Android folder already exists."
           fi
 
       - name: Install dependencies
