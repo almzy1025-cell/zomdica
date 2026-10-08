@@ -1,0 +1,67 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Print toolchain versions
+        run: |
+          flutter --version
+          java -version
+
+      - name: Generate Android platform folder (only if missing)
+        run: |
+          if [ ! -d android ]; then
+            mkdir -p /tmp/radar_keep
+            cp -r lib test pubspec.yaml analysis_options.yaml /tmp/radar_keep/
+            flutter create --platforms=android --org com.zomedica --project-name zomedica_radar .
+            rm -rf lib test
+            cp -r /tmp/radar_keep/lib /tmp/radar_keep/test .
+            cp /tmp/radar_keep/pubspec.yaml /tmp/radar_keep/analysis_options.yaml .
+          fi
+
+      - name: Patch Android manifest and Gradle config
+        run: python3 scripts/ci_patch_android.py android
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Unit tests
+        run: flutter test
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zomedica-radar-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
